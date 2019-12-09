@@ -1,14 +1,6 @@
 import collections
 import os
 
-def readC(C, x, mode):
-	if mode == 0:
-		return C[C[x]]
-	if mode == 1:
-		return C[x]
-	assert False, "unknown mode %s" % mode
-
-
 def read(filename):
 	with open(filename, 'r') as f:
 		a = f.read()
@@ -21,11 +13,28 @@ class HaltException(Exception):
 class InputBlockedException(Exception):
 	pass
 
+class Memory:
+	def __init__(self, code):
+		self.M = []
+		for i, c in enumerate(code):
+			self.set(i, c)
+
+	def get(self, i):
+		while i >= len(self.M):
+			self.M.append(0)
+		return self.M[i]
+
+	def set(self, i, c):
+		self.get(i)
+		self.M[i] = c
+
+
 class Runner:
 	def __init__(self, code, ins=None):
-		self.C = code[:]
+		self.M = Memory(code)
 		self.halted = False
 		self.input = collections.deque([])
+		self.rel_base = 0
 		for v in (ins or []):
 			self.push(v)
 		self.pc = 0
@@ -36,65 +45,88 @@ class Runner:
 	def run(self):
 		if self.halted:
 			raise HaltException
-		C = self.C
+		M = self.M
+
+		def read(i, mode):
+			if mode == 0:
+				return M.get(M.get(i))
+			if mode == 1:
+				return M.get(i)
+			if mode == 2:
+				return M.get(M.get(i) + self.rel_base)
+			assert False, "unknown mode %s" % mode
+
+		def read_addr(i, mode):
+			if mode == 0:
+				return M.get(i)
+			if mode == 2:
+				return M.get(i) + self.rel_base
+			assert False, "unknown mode %s" % mode
+
 		while True:
 			pc = self.pc
-			ins = C[pc]
+			ins = M.get(pc)
 			op4m = (ins // 100000) % 10
 			op3m = (ins // 10000) % 10
 			op2m = (ins // 1000) % 10
 			op1m = (ins // 100) % 10
 			de = ins % 100
+
+
 			assert de + 100 * op1m + 1000 * op2m + 10000 * op3m + 100000 * op4m == ins
 			if de == 1: # add
-				op1 = readC(C, pc+1, op1m)
-				op2 = readC(C, pc+2, op2m)
-				op3 = C[pc+3]
-				C[op3] = op1 + op2
+				op1 = read(pc+1, op1m)
+				op2 = read(pc+2, op2m)
+				op3 = read_addr(pc+3, op3m)
+				M.set(op3, op1 + op2)
 				self.pc += 4
 			elif de == 2: # mul
-				op1 = readC(C, pc+1, op1m)
-				op2 = readC(C, pc+2, op2m)
-				op3 = C[pc+3]
-				C[op3] = op1 * op2
+				op1 = read(pc+1, op1m)
+				op2 = read(pc+2, op2m)
+				op3 = read_addr(pc+3, op3m)
+				M.set(op3, op1 * op2)
 				self.pc += 4
 			elif de == 3: # input
 				if not self.input:
 					raise InputBlockedException
-				op1 = C[pc+1]
+				op1 = read_addr(pc+1, op1m)
 				i = self.input.popleft()
-				C[op1] = i
+				M.set(op1, i)
 				self.pc += 2
 			elif de == 4: # output
-				op1 = readC(C, pc+1, op1m)
+				op1 = read(pc+1, op1m)
 				self.pc += 2
 				return op1
 			elif de == 5: # jump-if-true
-				op1 = readC(C, pc+1, op1m)
-				op2 = readC(C, pc+2, op2m)
+				op1 = read(pc+1, op1m)
+				op2 = read(pc+2, op2m)
 				if op1:
 					self.pc = op2
 				else:
 					self.pc += 3
 			elif de == 6: # jump-if-false
-				op1 = readC(C, pc+1, op1m)
-				op2 = readC(C, pc+2, op2m)
+				op1 = read(pc+1, op1m)
+				op2 = read(pc+2, op2m)
 				if not op1:
 					self.pc = op2
 				else:
 					self.pc += 3
 			elif de == 7: # less-than
-				op1 = readC(C, pc+1, op1m)
-				op2 = readC(C, pc+2, op2m)
-				op3 = C[pc+3]
-				C[op3] = 1 if op1 < op2 else 0
+				op1 = read(pc+1, op1m)
+				op2 = read(pc+2, op2m)
+				op3 = read_addr(pc+3, op3m)
+				M.set(op3, 1 if op1 < op2 else 0)
 				self.pc += 4
 			elif de == 8: # equals
-				op1 = readC(C, pc+1, op1m)
-				op2 = readC(C, pc+2, op2m)
-				op3 = C[pc+3]
-				C[op3] = 1 if op1 == op2 else 0
+				op1 = read(pc+1, op1m)
+				op2 = read(pc+2, op2m)
+				op3 = read_addr(pc+3, op3m)
+				M.set(op3,1 if op1 == op2 else 0)
 				self.pc += 4
+			elif de == 9: # set relative base
+				op1 = read(pc+1, op1m)
+				self.rel_base += op1
+				self.pc += 2
 			elif de == 99:
 				self.halted = True
 				raise HaltException
@@ -165,6 +197,12 @@ tests = [
 	[[3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31,
 	  1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104,
 	  999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99], [15], [1001]],
+
+	# day9 test cases
+	[[109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99], [],
+	 [109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99]],
+	[[1102,34915192,34915192,7,4,7,99,0], [], [1219070632396864]],
+	[[104,1125899906842624,99], [], [1125899906842624]],
 
 ]
 
