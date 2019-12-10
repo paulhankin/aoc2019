@@ -8,6 +8,6 @@ for i in [1, 2]:
 	while True:
 		try:
 			print(r.run())
-		except intcode.HaltException:
+		except StopIteration:
 			break
 

@@ -7,12 +7,6 @@ def read(filename):
 	a = a.split(',')
 	return [int(x) for x in a]
 
-class HaltException(Exception):
-	pass
-
-class InputBlockedException(Exception):
-	pass
-
 class Memory:
 	def __init__(self, code):
 		self.M = []
@@ -43,93 +37,54 @@ class Runner:
 		self.input.append(v)
 
 	def run(self):
-		if self.halted:
-			raise HaltException
 		M = self.M
-
-		def read(i, mode):
-			if mode == 0:
-				return M.get(M.get(i))
-			if mode == 1:
-				return M.get(i)
-			if mode == 2:
-				return M.get(M.get(i) + self.rel_base)
-			assert False, "unknown mode %s" % mode
 
 		def read_addr(i, mode):
 			if mode == 0:
 				return M.get(i)
+			if mode == 1:
+				return i
 			if mode == 2:
 				return M.get(i) + self.rel_base
 			assert False, "unknown mode %s" % mode
 
+		args = [0, 3, 3, 1, 1, 2, 2, 3, 3, 1]
+
 		while True:
 			pc = self.pc
 			ins = M.get(pc)
-			op4m = (ins // 100000) % 10
-			op3m = (ins // 10000) % 10
-			op2m = (ins // 1000) % 10
-			op1m = (ins // 100) % 10
 			de = ins % 100
 
+			if de != 99:
+				ops = [read_addr(pc+i+1, (ins//(10**(i+2)))%10) for i in range(args[de])]
 
-			assert de + 100 * op1m + 1000 * op2m + 10000 * op3m + 100000 * op4m == ins
 			if de == 1: # add
-				op1 = read(pc+1, op1m)
-				op2 = read(pc+2, op2m)
-				op3 = read_addr(pc+3, op3m)
-				M.set(op3, op1 + op2)
+				M.set(ops[2], M.get(ops[0]) + M.get(ops[1]))
 				self.pc += 4
 			elif de == 2: # mul
-				op1 = read(pc+1, op1m)
-				op2 = read(pc+2, op2m)
-				op3 = read_addr(pc+3, op3m)
-				M.set(op3, op1 * op2)
+				M.set(ops[2], M.get(ops[0]) * M.get(ops[1]))
 				self.pc += 4
 			elif de == 3: # input
-				if not self.input:
-					raise InputBlockedException
-				op1 = read_addr(pc+1, op1m)
-				i = self.input.popleft()
-				M.set(op1, i)
+				M.set(ops[0], self.input.popleft())
 				self.pc += 2
 			elif de == 4: # output
-				op1 = read(pc+1, op1m)
 				self.pc += 2
-				return op1
+				return M.get(ops[0])
 			elif de == 5: # jump-if-true
-				op1 = read(pc+1, op1m)
-				op2 = read(pc+2, op2m)
-				if op1:
-					self.pc = op2
-				else:
-					self.pc += 3
+				self.pc = M.get(ops[1]) if M.get(ops[0]) else self.pc + 3
 			elif de == 6: # jump-if-false
-				op1 = read(pc+1, op1m)
-				op2 = read(pc+2, op2m)
-				if not op1:
-					self.pc = op2
-				else:
-					self.pc += 3
+				self.pc = M.get(ops[1]) if not M.get(ops[0]) else self.pc + 3
 			elif de == 7: # less-than
-				op1 = read(pc+1, op1m)
-				op2 = read(pc+2, op2m)
-				op3 = read_addr(pc+3, op3m)
-				M.set(op3, 1 if op1 < op2 else 0)
+				M.set(ops[2], int(M.get(ops[0]) < M.get(ops[1])))
 				self.pc += 4
 			elif de == 8: # equals
-				op1 = read(pc+1, op1m)
-				op2 = read(pc+2, op2m)
-				op3 = read_addr(pc+3, op3m)
-				M.set(op3,1 if op1 == op2 else 0)
+				M.set(ops[2], int(M.get(ops[0]) == M.get(ops[1])))
 				self.pc += 4
 			elif de == 9: # set relative base
-				op1 = read(pc+1, op1m)
-				self.rel_base += op1
+				self.rel_base += M.get(ops[0])
 				self.pc += 2
 			elif de == 99:
-				self.halted = True
-				raise HaltException
+				raise StopIteration
 			else:
 				assert False, "unknown instruction %s" % ins
 
@@ -139,13 +94,11 @@ def run(prog, inp):
 	for i in inp:
 		r.push(i)
 	outz = []
-
 	while True:
 		try:
 			outz.append(r.run())
-		except HaltException:
-			break
-	return outz
+		except StopIteration:
+			return outz
 
 
 tests = [

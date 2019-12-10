@@ -10,7 +10,7 @@ for ins in itertools.permutations([5, 6, 7, 8, 9]):
 		for r in itertools.cycle(intcode.Runner(CC, [v]) for v in ins):
 			r.push(sig)
 			sig = r.run()
-	except intcode.HaltException:
+	except StopIteration:
 		pass
 	if sig > best:
 		best = sig
