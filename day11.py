@@ -28,6 +28,7 @@ def robot(prog, startcol):
 # part 1
 out, n = robot(intcode.read("day11.txt"), 0)
 
+# part 2
 out, _ = robot(intcode.read("day11.txt"), 1)
 for y in range(6):
 	for x in range(41):
