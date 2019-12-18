@@ -91,7 +91,6 @@ if 0:
 map, syms = make_map(lines)
 for line in map:
 	print(line)
-
 print()
 
 def make_graph(map, syms):
@@ -127,44 +126,7 @@ if 0:
 all_lower = ''.join(x for x in 'abcdefghijklmnopqrstuvwxyz' if x in syms)
 all_lower_set = set(all_lower)
 
-def shortest_key_path(E, D):
-	visited = set()
-	dists = collections.defaultdict(lambda: 1e9)
-	start = ('@', '@')
-	dists[start] = 0
-	q = [(0, start)]
-	prev = dict()
-	while q:
-		pri, state = heapq.heappop(q)
-		if state in visited:
-			continue
-		visited.add(state)
-		x, keys = state
-		skeys = set(keys)
-		if len(keys) == 1 + len(all_lower):
-			r = [state]
-			while r[-1] in prev:
-				r.append(prev[r[-1]])
-			return r, dists[state]
-		for k in all_lower:
-			if k in skeys:
-				continue
-			if not any(all(d.lower() in skeys for d in E[k_last][k][1]) for k_last in skeys if k in E[k_last]):
-				continue
-			nkeys = keys + k
-			nstate = (k, ''.join(sorted(nkeys)))
-			if dists[nstate] > dists[state] + D[x,k]:
-				heapq.heappush(q, (dists[state] + D[x,k], nstate))
-				prev[nstate] = state
-				dists[nstate] = dists[state] + D[x,k]
-
-	assert False
-
-print(shortest_key_path(E, D))
-
-print('part2')
-
-def shortest_key_path2(E, D, starts):
+def shortest_key_path(E, D, starts):
 	visited = set()
 	dists = collections.defaultdict(lambda: 1e9)
 	start = (tuple(starts), ''.join(starts))
@@ -175,7 +137,6 @@ def shortest_key_path2(E, D, starts):
 		pri, state = heapq.heappop(q)
 		if state in visited:
 			continue
-		print(state)
 		visited.add(state)
 		x, keys = state
 		skeys = set(keys)
@@ -183,7 +144,12 @@ def shortest_key_path2(E, D, starts):
 			r = [state]
 			while r[-1] in prev:
 				r.append(prev[r[-1]])
-			return r, dists[state]
+			s = []
+			last = set()
+			for _, k in r[::-1]:
+				s.append(''.join(sorted(set(k) - last)))
+				last = set(k)
+			return ''.join(s), dists[state]
 		for k in all_lower:
 			if k in skeys:
 				continue
@@ -206,6 +172,9 @@ def shortest_key_path2(E, D, starts):
 
 	assert False
 
+print('part 1')
+print(shortest_key_path(E, D, '@'))
+print('part2')
 
 man_x, man_y = syms['@']
 for i in range(3):
@@ -213,8 +182,5 @@ for i in range(3):
 	lines[man_y - 1 + i] = lines[man_y - 1 + i][:man_x - 1] + fill + lines[man_y - 1 + i][man_x + 2:]
 
 map, syms = make_map(lines)
-for line in map:
-	print(line)
 V, E, D = make_graph(map, syms)
-print(E)
-print(shortest_key_path2(E, D, '1234'))
+print(shortest_key_path(E, D, '1234'))
