@@ -36,16 +36,6 @@ def shuf_pow(M, n, DS):
 		n //= 2
 	return R
 
-def modinv(a, n):
-	t, r  = 0, n
-	nt, nr = 1, a
-	while nr:
-		q = r // nr
-		t, nt = (nt, t - q*nt)
-		r, nr = (nr, r - q*nr)
-	assert r == 1
-	return t % n
-
 cmds = list(read_cmds())
 
 print('part 1')
@@ -59,6 +49,8 @@ ITERS = 101741582076661
 deck = shuf_pow(shuf(cmds, DS2), ITERS, DS2)
 
 TARGET = 2020
-loc = (modinv(deck[0], DS2) * (TARGET - deck[1])) % DS2
+# we use that DS2 is prime, so that modular inverse of x mod DS2
+# is pow(x, DS2-2, DS2).
+loc = (pow(deck[0], DS2-2, DS2) * (TARGET - deck[1])) % DS2
 print(loc)
 assert deval(deck, loc, DS2) == TARGET
