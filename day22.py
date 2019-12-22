@@ -1,3 +1,19 @@
+def read_cmds():
+	with open('day22.txt') as f:
+		lines = f.read().split('\n')
+	for line in lines:
+		parts = line.strip().split()
+		if not parts:
+			continue
+		elif parts[0] == 'cut':
+			yield (1, -int(parts[-1]))
+		elif parts[0] == 'deal' and parts[-1] == 'stack':
+			yield (-1, -1)
+		elif parts[0] == 'deal':
+			yield (int(parts[-1]), 0)
+		else:
+			raise Exception('bad instruction %r' % cmd)
+
 def compose(s1, s2, DS):
 	# card at posn. x goes first to posn s1a*x+b
 	# then goes to (s2a*(s1a*x+s1bb) + s2b)
@@ -6,25 +22,10 @@ def compose(s1, s2, DS):
 def deval(deck, i, DS):
 	return (i * deck[0] + deck[1]) % DS
 
-def read_cmds():
-	with open('day22.txt') as f:
-		cmds = f.read().split('\n')
-	cmds = [cmd.strip() for cmd in cmds]
-	cmds = [cmd for cmd in cmds if cmd]
-	return cmds
-
 def shuf(cmds, DS):
 	deck = 1, 0
 	for cmd in cmds:
-		parts = cmd.split()
-		if parts[0] == 'cut':
-			deck = compose(deck, (1, -int(parts[-1])), DS)
-		elif parts[0] == 'deal' and parts[-1] == 'stack':
-			deck = compose(deck, (-1, -1), DS)
-		elif parts[0] == 'deal':
-			deck = compose(deck, (int(parts[-1]), 0), DS)
-		else:
-			raise Exception('bad instruction %r' % cmd)
+		deck = compose(deck, cmd, DS)
 	return deck
 
 def shuf_pow(M, n, DS):
@@ -45,7 +46,7 @@ def modinv(a, n):
 	assert r == 1
 	return t % n
 
-cmds = read_cmds()
+cmds = list(read_cmds())
 
 print('part 1')
 DS1 = 10007
