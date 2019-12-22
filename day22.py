@@ -61,4 +61,4 @@ deck = shuf_pow(shuf(cmds, DS2), ITERS, DS2)
 TARGET = 2020
 loc = (modinv(deck[0], DS2) * (TARGET - deck[1])) % DS2
 print(loc)
-assert deval(deck, loc, DS2) == 2020
+assert deval(deck, loc, DS2) == TARGET
