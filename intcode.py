@@ -23,12 +23,19 @@ class Memory:
 		self.M[i] = c
 
 
+class Interrupt(Exception):
+	pass
+
+
 class Runner:
-	def __init__(self, code, ins=None):
+	def __init__(self, code, ins=None, nic=False):
 		self.M = Memory(code)
 		self.halted = False
 		self.input = collections.deque([])
 		self.rel_base = 0
+		self.nic = nic
+		self.ticks = 0
+		self.nic_failed_ins = 0 # number of failed inputs after last output.
 		for v in (ins or []):
 			self.push(v)
 		self.pc = 0
@@ -51,6 +58,7 @@ class Runner:
 		args = [0, 3, 3, 1, 1, 2, 2, 3, 3, 1]
 
 		while True:
+			self.ticks += 1
 			pc = self.pc
 			ins = M.get(pc)
 			de = ins % 100
@@ -65,10 +73,21 @@ class Runner:
 				M.set(ops[2], M.get(ops[0]) * M.get(ops[1]))
 				self.pc += 4
 			elif de == 3: # input
-				M.set(ops[0], self.input.popleft())
+				blocked = False
+				if self.nic:
+					data = self.input.popleft() if self.input else -1
+					if data == -1:
+						self.nic_failed_ins += 1
+						blocked = True
+				else:
+					data = self.input.popleft()
+				M.set(ops[0], data)
 				self.pc += 2
+				if blocked:
+					raise Interrupt
 			elif de == 4: # output
 				self.pc += 2
+				self.nic_failed_ins = 0
 				return M.get(ops[0])
 			elif de == 5: # jump-if-true
 				self.pc = M.get(ops[1]) if M.get(ops[0]) else self.pc + 3
